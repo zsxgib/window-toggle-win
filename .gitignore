@@ -1,0 +1,7 @@
+# Compiled AHK files
+*.ahk
+*.exe
+
+# Config files (generated at runtime)
+config.json
+*.tmp
