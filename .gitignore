@@ -1,6 +1,12 @@
 # Compiled AHK files
 *.ahk
-*.exe
+
+# Build artifacts
+build/
+dist/
+*.spec
+__pycache__/
+*.pyc
 
 # Config files (generated at runtime)
 config.json
