@@ -95,6 +95,8 @@ class WindowToggleApp:
 
         msg = MSG()
 
+        print(f"Message loop started, hwnd={self.hwnd}")  # 调试
+
         while self.running:
             # 使用 PeekMessage 非阻塞获取消息
             ret = user32.PeekMessageA(byref(msg), None, 0, 0, 1)  # PM_REMOVE = 1
@@ -102,10 +104,14 @@ class WindowToggleApp:
                 if msg.message == 0x0002:  # WM_DESTROY
                     break
 
+                # 调试：打印所有消息
+                if msg.message != 0x0113:  # 忽略 WM_TIMER
+                    print(f"Message: {msg.message}, wParam={msg.wParam}")  # 调试
+
                 if msg.message == hotkey.WM_HOTKEY:
                     # 热键触发
                     shortcut_id = msg.wParam
-                    print(f"Hotkey triggered: {shortcut_id}")  # 调试
+                    print(f">>> Hotkey triggered: {shortcut_id}")  # 调试
                     self.app.after(0, lambda: self.main_window.on_hotkey_triggered(shortcut_id))
 
                 user32.TranslateMessage(byref(msg))
