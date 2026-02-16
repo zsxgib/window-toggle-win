@@ -2,61 +2,65 @@
 
 ## 项目目标
 
-将 Linux 下的 window-toggle 工具移植到 Windows，实现相同的功能体验。
+将 Linux 下的 window-toggle 工具移植到 Windows，使用 Python + customtkinter 实现 GUI，pywin32 处理窗口和热键。
 
 ## 功能需求
 
-### 1. Configure 模式（交互式配置）
+### 1. GUI 主界面
 
-- **捕获任意按键组合**：监听全局键盘事件
-- **扫描并显示窗口**：枚举所有顶层窗口，按进程/应用分组显示
-- **用户选择**：显示窗口列表，用户输入编号选择
-- **保存配置**：将 热键 → 窗口 映射保存到配置文件
-- **注册系统快捷键**：将热键注册到 Windows 系统
+- 显示当前已配置的快捷键列表
+- "添加" 按钮 → 弹出窗口选择对话框
+- "删除" 按钮 → 删除选中的快捷键
+- 托盘图标支持（后台运行）
 
-### 2. Run 模式
+### 2. 添加快捷键流程
 
-- 根据按键查找对应窗口
-- 检测窗口状态（隐藏/显示）
-- Toggle：隐藏→显示，显示→隐藏
+- 点击 "添加" 按钮
+- 弹出对话框：提示用户按下快捷键
+- 扫描并显示当前所有窗口（按应用分组）
+- 用户选择目标窗口
+- 保存配置，自动注册热键
 
-### 3. Show 模式
+### 3. Toggle 功能
 
-- 显示当前所有已配置的快捷键
+- 热键触发时检测窗口状态
+- 隐藏 → 显示（激活窗口）
+- 显示 → 隐藏（最小化窗口）
 
-### 4. Clean 模式
+### 4. 删除快捷键
 
-- 清除所有已配置的快捷键
-- 删除配置文件
+- 选中列表中的快捷键
+- 点击删除，移除配置和热键
 
 ## 技术方案
 
-### 技术栈选择
+### 技术栈
 
-**AutoHotkey v2** - 最简单方案，原生支持：
-- 全局热键注册 (`Hotkey` 命令)
-- 窗口枚举和操作
-- GUI 交互界面
-- 配置文件读写
+- **Python 3**
+- **pywin32** - Windows API 封装（窗口操作、热键注册）
+- **customtkinter** - 现代 GUI 样式
 
 ### 核心 API
 
-| 功能 | Windows API |
-|------|-------------|
-| 枚举窗口 | `EnumWindows()` + `GetWindowText()` |
-| 隐藏窗口 | `ShowWindow(hwnd, SW_MINIMIZE)` |
-| 显示窗口 | `SetForegroundWindow(hwnd)` + `ShowWindow(hwnd, SW_RESTORE)` |
-| 注册热键 | `Hotkey` 命令或 `RegisterHotKey()` |
-| 获取窗口类 | `GetClassName()` |
+| 功能 | pywin32 |
+|------|---------|
+| 枚举窗口 | `win32gui.EnumWindows()` |
+| 获取窗口标题 | `win32gui.GetWindowText()` |
+| 获取窗口类 | `win32gui.GetClassName()` |
+| 隐藏窗口 | `win32gui.ShowWindow(hwnd, SW_MINIMIZE)` |
+| 显示窗口 | `win32gui.SetForegroundWindow()` + `ShowWindow(hwnd, SW_RESTORE)` |
+| 注册全局热键 | `win32gui.RegisterHotKey()` |
+| 消息循环 | `win32gui.PumpMessages()` |
 
 ### 配置文件格式
 
-JSON 格式，存储在用户目录：
+JSON 格式，存储在用户配置目录：
 
 ```json
 {
   "shortcuts": [
     {
+      "id": 1,
       "key": "F1",
       "modifiers": "Ctrl+Alt",
       "window_title": "Terminator",
@@ -66,60 +70,80 @@ JSON 格式，存储在用户目录：
 }
 ```
 
-### 状态跟踪
+### 配置文件路径
 
-使用临时文件记录窗口状态：
-- `~/.config/window-toggle/state` - 隐藏/显示状态
+- Windows: `%APPDATA%\window-toggle-win\config.json`
 
 ## 文件结构
 
 ```
 window-toggle-win/
-├── window-toggle.ahk      # 主程序
-├── config.json            # 配置文件（运行时生成）
-└── README.md              # 使用说明
+├── window-toggle.py      # 主程序
+├── config.json           # 配置文件（运行时生成）
+├── requirements.txt      # 依赖
+└── README.md            # 使用说明
+```
+
+## 依赖安装
+
+```bash
+pip install pywin32 customtkinter
 ```
 
 ## 实现步骤
 
 ### Phase 1: 基础框架
 
-1. 创建主程序框架
-2. 实现命令行参数解析（--configure, --run, --show, --clean）
-3. 实现配置文件读写
+1. 创建主窗口 GUI（customtkinter）
+2. 实现配置文件读写
+3. 实现窗口枚举函数
 
-### Phase 2: Configure 模式
+### Phase 2: 添加快捷键功能
 
-1. 实现全局按键捕获
-2. 实现窗口枚举
-3. 实现窗口分组和显示
-4. 实现用户选择交互
-5. 实现系统热键注册
+1. 实现快捷键捕获对话框
+2. 实现窗口列表显示（按应用分组）
+3. 实现用户选择交互
+4. 实现热键注册（RegisterHotKey）
 
-### Phase 3: Run 模式
+### Phase 3: Toggle 功能
 
-1. 实现按键到窗口的映射查找
-2. 实现窗口状态检测
+1. 实现热键回调处理
+2. 实现窗口状态检测（IsIconic）
 3. 实现 toggle 逻辑
 
-### Phase 4: 完善
+### Phase 4: GUI 完善
 
-1. 实现 --show 命令
-2. 实现 --clean 命令
-3. 错误处理和用户提示
+1. 实现删除快捷键功能
+2. 实现托盘图标
+3. 界面美化
 
 ## 使用方式
 
 ```bash
-# 配置新快捷键
-window-toggle.ahk --configure
+# 运行程序
+python window-toggle.py
 
-# 运行（由热键触发）
-window-toggle.ahk --run --key F1
+# 程序启动后显示 GUI
+# - 点击"添加"配置新快捷键
+# - 按下配置的快捷键可 toggle 窗口
+# - 关闭窗口最小化到托盘
+```
 
-# 显示配置
-window-toggle.ahk --show
+## GUI 界面设计
 
-# 清除配置
-window-toggle.ahk --clean
+```
+┌─────────────────────────────────────────┐
+│  Window Toggle                    _ X  │
+├─────────────────────────────────────────┤
+│  已配置的快捷键:                        │
+│  ┌─────────────────────────────────┐   │
+│  │ Ctrl+Alt+F1 → Terminator       │   │
+│  │ Ctrl+Alt+F2 → VS Code          │   │
+│  │ Super+F3 → Chrome             │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  [+ 添加]  [- 删除]                     │
+│                                         │
+│  按下快捷键可 toggle 对应窗口           │
+└─────────────────────────────────────────┘
 ```
