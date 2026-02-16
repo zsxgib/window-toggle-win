@@ -10,7 +10,7 @@ import time
 import win32gui
 import win32con
 import win32api
-from ctypes import Structure, c_long, c_ulong, byref
+from ctypes import windll, Structure, c_long, c_ulong, byref
 
 import customtkinter as ctk
 
@@ -90,13 +90,16 @@ class WindowToggleApp:
 
     def message_loop(self):
         """Win32 消息循环（在单独线程中运行）"""
+        # 使用 windll 调用 PeekMessage
+        user32 = windll.user32
+
         msg = MSG()
 
         while self.running:
             # 使用 PeekMessage 非阻塞获取消息
-            ret = win32gui.PeekMessage(byref(msg), None, 0, 0, win32con.PM_REMOVE)
+            ret = user32.PeekMessageA(byref(msg), None, 0, 0, 1)  # PM_REMOVE = 1
             if ret:
-                if msg.message == win32con.WM_DESTROY:
+                if msg.message == 0x0002:  # WM_DESTROY
                     break
 
                 if msg.message == hotkey.WM_HOTKEY:
@@ -105,11 +108,11 @@ class WindowToggleApp:
                     print(f"Hotkey triggered: {shortcut_id}")  # 调试
                     self.app.after(0, lambda: self.main_window.on_hotkey_triggered(shortcut_id))
 
-                win32gui.TranslateMessage(byref(msg))
-                win32gui.DispatchMessage(byref(msg))
+                user32.TranslateMessage(byref(msg))
+                user32.DispatchMessageA(byref(msg))
             else:
                 # 没有消息时短暂休眠，避免CPU占用过高
-                time.sleep(0.01)
+                time.sleep(0.05)
 
     def show_window(self):
         """显示窗口"""
