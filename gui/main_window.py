@@ -3,6 +3,7 @@
 显示快捷键列表，提供添加/删除功能
 """
 import customtkinter as ctk
+import tkinter as tk
 from core import config, hotkey, window as window_mgr
 
 
@@ -55,20 +56,27 @@ class MainWindow:
         list_frame.pack(fill="both", expand=True, padx=20, pady=10)
 
         # 滚动条
-        scrollbar = ctk.CTkScrollbar(list_frame)
+        scrollbar = tk.Scrollbar(list_frame)
         scrollbar.pack(side="right", fill="y")
 
-        # 快捷键列表
-        self.listbox = ctk.CTkTextbox(
+        # 使用 tkinter Listbox 支持选中
+        self.listbox = tk.Listbox(
             list_frame,
             yscrollcommand=scrollbar.set,
-            font=ctk.CTkFont(size=14)
+            font=("Segoe UI", 12),
+            bg="#1f1f1f",
+            fg="white",
+            selectbackground="#3b8ed0",
+            selectforeground="white",
+            bd=0,
+            highlightthickness=0,
+            justify="left"
         )
         self.listbox.pack(side="left", fill="both", expand=True)
         scrollbar.configure(command=self.listbox.yview)
 
-        # 列表框只读，不能直接编辑
-        self.listbox.configure(state="disabled")
+        # 绑定选择事件
+        self.listbox.bind("<<ListboxSelect>>", self.on_list_select)
 
         # 按钮框架
         button_frame = ctk.CTkFrame(self.app, fg_color="transparent")
@@ -100,16 +108,15 @@ class MainWindow:
     def refresh_list(self):
         """刷新快捷键列表"""
         # 清空列表
-        self.listbox.configure(state="normal")
-        self.listbox.delete("1.0", "end")
+        self.listbox.delete(0, "end")
 
         # 加载配置
         data = config.load()
         shortcuts = data.get('shortcuts', [])
 
         if not shortcuts:
-            self.listbox.insert("end", "暂无配置的快捷键\n")
-            self.listbox.insert("end", "\n点击「添加」配置新快捷键")
+            self.listbox.insert("end", "暂无配置的快捷键")
+            self.listbox.insert("end", "点击「添加」配置新快捷键")
         else:
             for s in shortcuts:
                 mod = s.get('modifiers', '')
@@ -121,9 +128,7 @@ class MainWindow:
                 else:
                     hotkey_str = key
 
-                self.listbox.insert("end", f"{hotkey_str} → {title}\n")
-
-        self.listbox.configure(state="disabled")
+                self.listbox.insert("end", f"{hotkey_str} → {title}")
 
     def register_all_hotkeys(self):
         """注册所有已配置的热键"""
@@ -167,42 +172,40 @@ class MainWindow:
 
     def on_delete_click(self):
         """删除按钮点击事件"""
-        # 获取当前选中的行
-        try:
-            current = self.listbox.index("insert")
-        except:
-            current = None
-
-        if current is None:
+        # 获取选中的项
+        selection = self.listbox.curselection()
+        if not selection:
             return
 
-        # 计算对应哪一行（减去空行等）
+        idx = selection[0]
+
+        # 加载配置
         data = config.load()
         shortcuts = data.get('shortcuts', [])
 
-        if not shortcuts:
+        if not shortcuts or idx >= len(shortcuts):
             return
 
-        # 根据点击位置估算要删除的快捷键
-        line_num = int(current)
-        # 粗略估算：每两行一个快捷键（因为有空行）
-        idx = (line_num - 1) // 2
+        # 获取要删除的快捷键
+        shortcut = shortcuts[idx]
+        shortcut_id = shortcut.get('id')
 
-        if 0 <= idx < len(shortcuts):
-            shortcut = shortcuts[idx]
-            shortcut_id = shortcut.get('id')
+        # 注销热键（通过重新注册所有来清除）
+        hotkey.unregister_all()
+        self.registered_hotkeys.clear()
 
-            # 注销热键
-            hotkey.unregister(self.hwnd, shortcut_id)
+        # 删除配置
+        config.remove_shortcut(shortcut_id)
 
-            # 删除配置
-            config.remove_shortcut(shortcut_id)
+        # 刷新列表
+        self.refresh_list()
 
-            # 刷新列表
-            self.refresh_list()
+        # 重新注册剩余热键
+        self.register_all_hotkeys()
 
-            # 重新注册剩余热键
-            self.register_all_hotkeys()
+    def on_list_select(self, event):
+        """列表选择事件"""
+        pass
 
     def on_list_click(self, event):
         """列表点击事件"""
