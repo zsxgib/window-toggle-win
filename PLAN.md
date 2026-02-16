@@ -10,7 +10,7 @@
 
 - **Python 3.8+**
 - **pywin32** - Windows API（窗口操作、热键注册）
-- **tkinter** - GUI（Python 内置）
+- **customtkinter** - 现代 GUI 样式（需要 `pip install customtkinter`）
 - **pystray** - 系统托盘
 
 ### 文件结构
@@ -44,7 +44,7 @@ window-toggle-win/
 
 **任务：**
 1. 创建目录结构
-2. 创建 requirements.txt：pywin32, pystray, Pillow
+2. 创建 requirements.txt：pywin32, customtkinter, pystray, Pillow
 3. 创建空的 `__init__.py` 文件
 4. 安装依赖并验证
 
@@ -149,7 +149,7 @@ window-toggle-win/
 **任务：**
 1. 第一步：捕获按键
    - 显示提示"请按下快捷键"
-   - 监听键盘事件（使用键盘钩子或 tkinter bind）
+   - 监听键盘事件（使用键盘钩子或 customtkinter bind）
    - 捕获到按键后显示组合（如 "Ctrl+Alt+F1"）
 2. 第二步：显示窗口列表
    - 调用 core/window.py 枚举窗口
@@ -168,14 +168,14 @@ window-toggle-win/
 **目标：** 让 GUI 和热键同时工作
 
 **任务：**
-1. 在 main.py 中创建 tkinter root 窗口
+1. 在 main.py 中创建 customtkinter root 窗口
 2. 获取 root 窗口的句柄（用于 RegisterHotKey）
 3. 启动时注册所有已配置的熱鍵
-4. 实现消息循环：同时处理 tkinter 事件和 Win32 消息
+4. 实现消息循环：同时处理 customtkinter 事件和 Win32 消息
 5. 热键触发时调用 window.toggle_window()
 
 **关键问题：**
-- tkinter 的 mainloop 和 Win32 消息循环需要整合
+- customtkinter 基于 tkinter，其 mainloop 和 Win32 消息循环需要整合
 - 解决方案：使用 root.after() 轮询或单独线程处理 Win32 消息
 
 **验收标准：** 启动程序后，按下配置的熱鍵能 toggle 窗口
@@ -238,5 +238,5 @@ main.py
 3. **管理员权限**：某些操作可能需要管理员权限
    - 解决：提示用户以管理员身份运行
 
-4. **消息循环阻塞**：tkinter 和 Win32 消息循环可能冲突
+4. **消息循环阻塞**：customtkinter(tkinter) 和 Win32 消息循环可能冲突
    - 解决：使用线程或轮询方式整合
