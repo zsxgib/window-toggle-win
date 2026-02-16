@@ -136,13 +136,19 @@ class MainWindow:
             key = s.get('key', '')
 
             if shortcut_id and key:
+                # 保存窗口信息
+                self.registered_hotkeys[shortcut_id] = {
+                    'modifiers': modifiers,
+                    'key': key,
+                    'window_title': s.get('window_title', ''),
+                    'window_class': s.get('window_class', '')
+                }
+
+                # 注册热键并设置回调
                 if hotkey.register(self.hwnd, shortcut_id, modifiers, key):
-                    self.registered_hotkeys[shortcut_id] = {
-                        'modifiers': modifiers,
-                        'key': key,
-                        'window_title': s.get('window_title', ''),
-                        'window_class': s.get('window_class', '')
-                    }
+                    # 设置回调
+                    window_class = s.get('window_class', '')
+                    hotkey.set_callback(shortcut_id, lambda sid=shortcut_id: self.on_hotkey_triggered(sid))
 
     def on_add_click(self):
         """添加按钮点击事件"""

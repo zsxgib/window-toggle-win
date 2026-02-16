@@ -294,6 +294,11 @@ class AddDialog:
                 saved['key']
             )
 
+            # 获取主窗口实例并设置回调
+            # 通过 parent 查找主窗口
+            from gui.main_window import MainWindow
+            # 这里简化处理：让回调在 on_close_callback 中统一处理
+
         # 关闭对话框
         self.dialog.destroy()
 
