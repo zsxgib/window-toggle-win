@@ -142,10 +142,19 @@ def register(hwnd, shortcut_id, modifiers_str, key_str):
     key = parse_key(key_str)
 
     if key == 0:
+        print(f"Failed to register hotkey: key not found")
+        return False
+
+    if hwnd is None:
+        print(f"Failed to register hotkey: hwnd is None")
         return False
 
     try:
         result = win32gui.RegisterHotKey(hwnd, shortcut_id, mod, key)
+        if result:
+            print(f"Registered hotkey: {modifiers_str}+{key_str}, id={shortcut_id}, hwnd={hwnd}")
+        else:
+            print(f"Failed to register hotkey: {modifiers_str}+{key_str} (already registered?)")
         return result
     except Exception as e:
         print(f"Failed to register hotkey: {e}")

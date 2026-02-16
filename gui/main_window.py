@@ -7,15 +7,16 @@ from core import config, hotkey, window as window_mgr
 
 
 class MainWindow:
-    def __init__(self, app, hwnd):
+    def __init__(self, app, hwnd=None):
         """
         初始化主窗口
         Args:
             app: CTk 实例
-            hwnd: 窗口句柄，用于注册热键
+            hwnd: 窗口句柄，用于注册热键（可以后设置）
         """
         self.app = app
         self.hwnd = hwnd
+        self.registered_hotkeys = {}
 
         # 设置主题
         ctk.set_appearance_mode("dark")
@@ -25,17 +26,11 @@ class MainWindow:
         self.app.title("Window Toggle")
         self.app.geometry("500x400")
 
-        # 存储已注册的热键 ID
-        self.registered_hotkeys = {}
-
         # 创建界面元素
         self.create_widgets()
 
         # 加载配置并刷新列表
         self.refresh_list()
-
-        # 注册已配置的热键
-        self.register_all_hotkeys()
 
     def create_widgets(self):
         """创建界面元素"""

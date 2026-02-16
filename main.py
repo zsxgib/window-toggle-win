@@ -10,6 +10,7 @@ import time
 import win32gui
 import win32con
 import win32api
+import win32gui_struct
 
 import customtkinter as ctk
 
@@ -25,11 +26,18 @@ class WindowToggleApp:
         self.app.title("Window Toggle")
         self.app.geometry("500x400")
 
-        # 获取窗口句柄
-        self.hwnd = int(self.app.winfo_id())
+        # 先创建主窗口（会创建 tkinter 窗口）
+        self.main_window = MainWindow(self.app, None)
 
-        # 创建主窗口
-        self.main_window = MainWindow(self.app, self.hwnd)
+        # 获取窗口句柄（在窗口创建之后）
+        self.app.update()  # 强制更新以获取正确的句柄
+        self.hwnd = self.get_hwnd()
+
+        # 设置 hwnd 到主窗口
+        self.main_window.hwnd = self.hwnd
+
+        # 注册热键
+        self.main_window.register_all_hotkeys()
 
         # 启动 Win32 消息处理线程
         self.running = True
@@ -49,19 +57,39 @@ class WindowToggleApp:
         # 启动 GUI
         self.app.mainloop()
 
+    def get_hwnd(self):
+        """获取 tkinter 窗口的正确句柄"""
+        # 方法：通过窗口标题查找
+        def find_callback(hwnd, _):
+            if win32gui.IsWindowVisible(hwnd):
+                title = win32gui.GetWindowText(hwnd)
+                if title == "Window Toggle":
+                    return False  # 找到后停止枚举
+            return True
+
+        win32gui.EnumWindows(find_callback, None)
+
+        # 如果找不到，用备用方法
+        try:
+            return int(self.app.winfo_id())
+        except:
+            return win32gui.GetForegroundWindow()
+
     def message_loop(self):
         """Win32 消息循环（在单独线程中运行）"""
         msg = win32gui.MSG()
 
         while self.running:
             # 使用 PeekMessage 非阻塞获取消息
-            if win32gui.PeekMessage(msg, None, 0, 0, win32con.PM_REMOVE):
+            ret = win32gui.PeekMessage(msg, None, 0, 0, win32con.PM_REMOVE)
+            if ret:
                 if msg.message == win32con.WM_DESTROY:
                     break
 
                 if msg.message == hotkey.WM_HOTKEY:
                     # 热键触发
                     shortcut_id = msg.wParam
+                    print(f"Hotkey triggered: {shortcut_id}")  # 调试
                     self.app.after(0, lambda: self.main_window.on_hotkey_triggered(shortcut_id))
 
                 win32gui.TranslateMessage(msg)
