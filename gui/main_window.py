@@ -152,10 +152,17 @@ class MainWindow:
     def on_add_click(self):
         """添加按钮点击事件"""
         from gui.add_dialog import AddDialog
-        dialog = AddDialog(self.app, self.hwnd)
-        # 对话框关闭后刷新列表
-        self.app.after(100, self.refresh_list)
-        self.app.after(200, self.register_all_hotkeys)
+
+        # 保存主窗口引用
+        main_window = self
+
+        # 定义对话框关闭后的回调
+        def on_dialog_close():
+            main_window.refresh_list()
+            main_window.register_all_hotkeys()
+
+        # 创建对话框，传入回调函数
+        dialog = AddDialog(self.app, self.hwnd, on_dialog_close)
 
     def on_delete_click(self):
         """删除按钮点击事件"""

@@ -7,15 +7,17 @@ from core import config, hotkey, window as window_mgr
 
 
 class AddDialog:
-    def __init__(self, parent, hwnd):
+    def __init__(self, parent, hwnd, on_close_callback=None):
         """
         初始化添加对话框
         Args:
             parent: 父窗口
             hwnd: 窗口句柄，用于注册热键
+            on_close_callback: 对话框关闭后的回调函数
         """
         self.parent = parent
         self.hwnd = hwnd
+        self.on_close_callback = on_close_callback
         self.result = None
         self.selected_hotkey = None
         self.selected_window = None
@@ -283,6 +285,10 @@ class AddDialog:
 
         # 关闭对话框
         self.dialog.destroy()
+
+        # 调用关闭回调
+        if self.on_close_callback:
+            self.on_close_callback()
 
     def on_cancel(self):
         """取消按钮点击"""
