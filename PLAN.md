@@ -2,14 +2,14 @@
 
 ## 项目目标
 
-将 Linux 下的 window-toggle 工具移植到 Windows，使用 Python 实现 GUI。
+将 Linux 下的 window-toggle 工具移植到 Windows，实现用快捷键 toggle 窗口显示/隐藏的功能。
 
 ## 技术方案
 
 ### 技术栈
 
 - **Python 3.8+**
-- **pywin32** - Windows API（窗口操作、热键）
+- **pywin32** - Windows API（窗口操作、热键注册）
 - **tkinter** - GUI（Python 内置）
 - **pystray** - 系统托盘
 
@@ -17,16 +17,16 @@
 
 ```
 window-toggle-win/
-├── main.py              # 入口，启动 GUI 和消息循环
+├── main.py              # 入口
 ├── gui/
 │   ├── __init__.py
-│   ├── main_window.py  # 主窗口（快捷键列表）
-│   └── add_dialog.py   # 添加快捷键对话框
+│   ├── main_window.py  # 主窗口
+│   └── add_dialog.py   # 添加对话框
 ├── core/
 │   ├── __init__.py
-│   ├── hotkey.py       # 热键注册和管理
-│   ├── window.py       # 窗口枚举和操作
-│   └── config.py       # 配置文件读写
+│   ├── hotkey.py       # 热键管理
+│   ├── window.py       # 窗口管理
+│   └── config.py       # 配置管理
 ├── utils/
 │   ├── __init__.py
 │   └── logger.py       # 日志
@@ -34,243 +34,209 @@ window-toggle-win/
 └── README.md
 ```
 
-## 详细实现
+---
 
-### 1. 核心模块 (core/)
+## 阶段划分
 
-#### config.py - 配置管理
+### 阶段 1：项目骨架
 
-```python
-# 功能：配置文件读写
-# 方法：
-- load() -> dict: 加载配置
-- save(data): 保存配置
-- add_shortcut(shortcut): 添加快捷键
-- remove_shortcut(id): 删除快捷键
+**目标：** 建立项目结构，配置依赖
 
-# 配置文件格式：
-# {
-#   "shortcuts": [
-#     {
-#       "id": 1,
-#       "key": "F1",
-#       "modifiers": "Ctrl+Alt",
-#       "window_title": "Terminator",
-#       "window_class": "Xterminal-emulator"
-#     }
-#   ]
-# }
-```
+**任务：**
+1. 创建目录结构
+2. 创建 requirements.txt：pywin32, pystray, Pillow
+3. 创建空的 `__init__.py` 文件
+4. 安装依赖并验证
 
-#### window.py - 窗口操作
+**验收标准：** `pip install -r requirements.txt` 成功
 
-```python
-# 功能：枚举窗口、toggle 窗口
-# 方法：
-- get_all_windows() -> list: 获取所有可见窗口
-- get_window_info(hwnd) -> dict: 获取窗口信息（标题、类名）
-- group_by_class(windows) -> dict: 按窗口类分组
-- toggle_window(hwnd): 切换窗口显示/隐藏
-- is_window_visible(hwnd) -> bool: 判断窗口是否可见
-- find_window_by_class(window_class) -> hwnd: 通过类名找窗口
-```
+---
 
-#### hotkey.py - 热键管理
+### 阶段 2：配置管理 (core/config.py)
 
-```python
-# 功能：注册、注销全局热键
-# 方法：
-- register(hwnd, id, modifiers, key) -> bool: 注册热键
-- unregister(id): 注销热键
-- get_modifiers(vk) -> str: 虚拟键码转修饰键字符串
-- get_key_name(vk) -> str: 虚拟键码转按键名
-- WM_HOTKEY = 0x0312: 热键消息ID
-```
+**目标：** 实现配置的持久化
 
-### 2. GUI 模块 (gui/)
+**任务：**
+1. 确定配置文件路径（`%APPDATA%\window-toggle-win\config.json`）
+2. 如果目录不存在，自动创建
+3. 实现配置加载：读取 JSON 文件，返回字典
+4. 实现配置保存：写入 JSON 文件
+5. 实现快捷键添加：根据现有数量生成新 ID
+6. 实现快捷键删除：根据 ID 删除
 
-#### main_window.py - 主窗口
-
-```python
-class MainWindow:
-    def __init__(self):
-        # 创建主窗口
-        # 显示快捷键列表（Listbox）
-        # "添加" 按钮 → 打开添加对话框
-        # "删除" 按钮 → 删除选中项
-
-    def refresh_list(self):
-        # 重新加载配置，刷新列表
-
-    def on_add_click(self):
-        # 打开添加对话框
-
-    def on_delete_click(self):
-        # 删除选中的快捷键
-
-    def on_hotkey_triggered(self, shortcut_id):
-        # 热键触发时调用 core/hotkey.py 切换窗口
-```
-
-#### add_dialog.py - 添加对话框
-
-```python
-class AddDialog:
-    def __init__(self, parent):
-        # 第一步：提示用户按下快捷键
-        # 捕获按键组合，显示如 "Ctrl+Alt+F1"
-
-        # 第二步：显示窗口列表
-        # 调用 core/window.py 枚举窗口
-        # 按应用分组显示
-
-        # 第三步：用户选择窗口
-        # 点击确定 → 保存配置 → 注册热键
-```
-
-### 3. 消息循环整合
-
-关键问题：tkinter 和 pywin32 消息循环整合
-
-```python
-# main.py
-import tkinter as tk
-import win32gui
-import win32con
-
-def main():
-    root = tk.Tk()
-    app = MainWindow(root)
-
-    # 创建隐藏窗口用于接收热键消息
-    hwnd = windll.user32.GetParent(root.winfo_id())
-
-    # 注册热键
-    for shortcut in config.load()["shortcuts"]:
-        hotkey.register(hwnd, shortcut["id"], shortcut["modifiers"], shortcut["key"])
-
-    # 消息循环
-    def msg_loop():
-        # 处理 WM_HOTKEY 消息
-        msg = win32gui.GetMessage(None, 0, 0)
-        if msg[1]:
-            if msg[0].message == win32con.WM_HOTKEY:
-                shortcut_id = msg[0].wParam
-                app.on_hotkey_triggered(shortcut_id)
-            win32gui.TranslateMessage(msg[0])
-            win32gui.DispatchMessage(msg[0])
-        root.after(100, msg_loop)  # 同时处理 tkinter
-
-    msg_loop()
-    root.mainloop()
-```
-
-## 实现步骤
-
-### Step 1: 创建目录结构和基础文件
-
-```
-window-toggle-win/
-├── main.py
-├── gui/
-│   ├── __init__.py
-│   ├── main_window.py
-│   └── add_dialog.py
-├── core/
-│   ├── __init__.py
-│   ├── hotkey.py
-│   ├── window.py
-│   └── config.py
-└── requirements.txt
-```
-
-### Step 2: 实现 core/config.py
-
-- 配置文件路径：`%APPDATA%\window-toggle-win\config.json`
-- 实现 load/save/add/remove 方法
-
-### Step 3: 实现 core/window.py
-
-- 实现 get_all_windows() 枚举窗口
-- 实现 toggle_window() 切换窗口
-- 测试窗口枚举和 toggle
-
-### Step 4: 实现 core/hotkey.py
-
-- 实现 register/unregister 热键
-- 定义修饰键和虚拟键常量
-
-### Step 5: 实现 gui/main_window.py
-
-- 创建主窗口
-- 显示快捷键列表
-- 添加/删除按钮事件绑定
-
-### Step 6: 实现 gui/add_dialog.py
-
-- 第一步：捕获按键
-- 第二步：枚举并显示窗口
-- 第三步：保存配置并注册热键
-
-### Step 7: 整合消息循环
-
-- 在 main.py 中整合 tkinter 和 win32 消息循环
-
-### Step 8: 添加托盘支持
-
-- 用 pystray 实现托盘图标
-- 关闭窗口时最小化到托盘
-
-## 关键数据结构
-
-### 窗口信息
-```python
+**数据格式：**
+```json
 {
-    "hwnd": 12345678,      # 窗口句柄
-    "title": "Terminator", # 窗口标题
-    "class": "Xterminal"  # 窗口类名
+  "shortcuts": [
+    {
+      "id": 1,
+      "key": "F1",
+      "modifiers": "Ctrl+Alt",
+      "window_title": "Terminator",
+      "window_class": "Xterminal-emulator"
+    }
+  ]
 }
 ```
 
-### 快捷键配置
-```python
-{
-    "id": 1,                # 唯一ID
-    "key": "F1",            # 键名
-    "modifiers": "Ctrl+Alt",# 修饰键
-    "window_title": "Terminator",
-    "window_class": "Xterminal-emulator"
-}
+**验收标准：** 配置能正确保存和读取，添加删除后文件内容正确
+
+---
+
+### 阶段 3：窗口管理 (core/window.py)
+
+**目标：** 实现窗口枚举和 toggle 功能
+
+**任务：**
+1. 枚举所有可见顶层窗口（使用 EnumWindows API）
+2. 获取每个窗口的标题和类名
+3. 过滤掉不可见、无标题的窗口
+4. 实现窗口分组：按 window_class 分组显示
+5. 实现 toggle：最小化 → 恢复并激活，正常 → 最小化
+
+**关键逻辑：**
+- 如何判断窗口是否最小化：使用 IsIconic
+- 如何找到目标窗口：通过 window_class 匹配（可能有多个，取第一个）
+- 隐藏使用 SW_MINIMIZE，显示使用 SW_RESTORE + SetForegroundWindow
+
+**验收标准：**
+- 能列出当前所有窗口
+- toggle 功能正常（最小化能恢复，恢复能最小化）
+
+---
+
+### 阶段 4：热键管理 (core/hotkey.py)
+
+**目标：** 实现全局热键注册
+
+**任务：**
+1. 定义虚拟键码映射表（F1-F12, A-Z, 0-9 等）
+2. 定义修饰键码（Ctrl, Alt, Shift, Win）
+3. 实现热键注册函数：参数为 hwnd, id, modifiers, key
+4. 实现热键注销函数
+5. 处理 WM_HOTKEY 消息
+
+**关键逻辑：**
+- RegisterHotKey 需要一个窗口句柄来接收消息
+- 修饰键需要组合（Ctrl+Alt = 0x0002 | 0x0001 = 0x0003）
+- 热键 ID 不能重复
+
+**验收标准：** 注册热键后，按下对应键能触发回调
+
+---
+
+### 阶段 5：主窗口 GUI (gui/main_window.py)
+
+**目标：** 实现主界面
+
+**任务：**
+1. 创建主窗口，设置标题和尺寸
+2. 创建快捷键列表区域（Listbox）
+3. 创建"添加"和"删除"按钮
+4. 窗口启动时加载配置，刷新列表
+5. 点击"添加"打开添加对话框
+6. 点击"删除"删除选中的快捷键
+7. 窗口关闭时隐藏到托盘而不是退出
+
+**验收标准：** 界面显示正常，按钮能点击，列表能显示
+
+---
+
+### 阶段 6：添加对话框 (gui/add_dialog.py)
+
+**目标：** 实现添加快捷键的交互流程
+
+**任务：**
+1. 第一步：捕获按键
+   - 显示提示"请按下快捷键"
+   - 监听键盘事件（使用键盘钩子或 tkinter bind）
+   - 捕获到按键后显示组合（如 "Ctrl+Alt+F1"）
+2. 第二步：显示窗口列表
+   - 调用 core/window.py 枚举窗口
+   - 按应用分组显示（类似 Linux 版的分组逻辑）
+3. 第三步：保存
+   - 用户选择窗口后，生成新 ID
+   - 调用 core/config.py 保存配置
+   - 调用 core/hotkey.py 注册热键
+
+**验收标准：** 能完整走完添加流程，添加后列表更新
+
+---
+
+### 阶段 7：消息循环整合
+
+**目标：** 让 GUI 和热键同时工作
+
+**任务：**
+1. 在 main.py 中创建 tkinter root 窗口
+2. 获取 root 窗口的句柄（用于 RegisterHotKey）
+3. 启动时注册所有已配置的熱鍵
+4. 实现消息循环：同时处理 tkinter 事件和 Win32 消息
+5. 热键触发时调用 window.toggle_window()
+
+**关键问题：**
+- tkinter 的 mainloop 和 Win32 消息循环需要整合
+- 解决方案：使用 root.after() 轮询或单独线程处理 Win32 消息
+
+**验收标准：** 启动程序后，按下配置的熱鍵能 toggle 窗口
+
+---
+
+### 阶段 8：托盘支持
+
+**目标：** 实现系统托盘图标
+
+**任务：**
+1. 使用 pystray 创建托盘图标
+2. 点击托盘图标显示主窗口
+3. 右键托盘图标显示菜单（显示/退出）
+4. 关闭主窗口时隐藏到托盘而不是退出
+5. 程序启动时最小化到托盘（可选）
+
+**验收标准：** 关闭主窗口后程序仍在托盘运行，点击托盘能恢复窗口
+
+---
+
+## 模块依赖关系
+
+```
+main.py
+  ├── gui/main_window.py
+  │     └── gui/add_dialog.py
+  │           ├── core/window.py
+  │           └── core/config.py
+  ├── core/config.py
+  ├── core/hotkey.py
+  └── core/window.py
 ```
 
-### 虚拟键码映射
-```python
-VK_CODES = {
-    0x70: "F1", 0x71: "F2", 0x72: "F3", ...,
-    0x41: "A", 0x42: "B", ...,
-    0x30: "0", 0x31: "1", ...
-}
+---
 
-MOD_CODES = {
-    "Ctrl": 0x0002,
-    "Alt": 0x0001,
-    "Shift": 0x0004,
-    "Win": 0x0008
-}
-```
+## 验收检查点
 
-## 依赖
+| 阶段 | 检查点 |
+|------|--------|
+| 1 | 依赖安装成功 |
+| 2 | 配置能保存和读取 |
+| 3 | 窗口枚举正常，toggle 正常 |
+| 4 | 热键注册成功并触发 |
+| 5 | 主界面显示正常 |
+| 6 | 添加流程完整 |
+| 7 | 热键和 GUI 同时工作 |
+| 8 | 托盘功能正常 |
 
-```
-pywin32
-pystray
-Pillow  # pystray 需要
-```
+---
 
-## 测试要点
+## 潜在问题
 
-1. 窗口枚举是否返回所有可见窗口
-2. toggle 窗口是否正常工作
-3. 热键注册是否成功
-4. 配置文件读写是否正常
-5. GUI 交互是否流畅
+1. **窗口类名匹配问题**：不同窗口实例可能有不同的类名后缀
+   - 解决：使用模糊匹配或让用户选择具体窗口
+
+2. **热键冲突**：系统或其他软件可能占用相同热键
+   - 解决：RegisterHotKey 返回失败时提示用户
+
+3. **管理员权限**：某些操作可能需要管理员权限
+   - 解决：提示用户以管理员身份运行
+
+4. **消息循环阻塞**：tkinter 和 Win32 消息循环可能冲突
+   - 解决：使用线程或轮询方式整合
