@@ -10,13 +10,26 @@ import time
 import win32gui
 import win32con
 import win32api
-import win32gui_struct
+from ctypes import Structure, c_long, c_ulong, byref
 
 import customtkinter as ctk
 
 from core import config, hotkey
 from gui.main_window import MainWindow
 from utils.tray import TrayIcon
+
+
+# 定义 MSG 结构体
+class MSG(Structure):
+    _fields_ = [
+        ("hwnd", c_long),
+        ("message", c_ulong),
+        ("wParam", c_long),
+        ("lParam", c_long),
+        ("time", c_long),
+        ("pt_x", c_long),
+        ("pt_y", c_long)
+    ]
 
 
 class WindowToggleApp:
@@ -77,11 +90,11 @@ class WindowToggleApp:
 
     def message_loop(self):
         """Win32 消息循环（在单独线程中运行）"""
-        msg = win32gui.MSG()
+        msg = MSG()
 
         while self.running:
             # 使用 PeekMessage 非阻塞获取消息
-            ret = win32gui.PeekMessage(msg, None, 0, 0, win32con.PM_REMOVE)
+            ret = win32gui.PeekMessage(byref(msg), None, 0, 0, win32con.PM_REMOVE)
             if ret:
                 if msg.message == win32con.WM_DESTROY:
                     break
@@ -92,8 +105,8 @@ class WindowToggleApp:
                     print(f"Hotkey triggered: {shortcut_id}")  # 调试
                     self.app.after(0, lambda: self.main_window.on_hotkey_triggered(shortcut_id))
 
-                win32gui.TranslateMessage(msg)
-                win32gui.DispatchMessage(msg)
+                win32gui.TranslateMessage(byref(msg))
+                win32gui.DispatchMessage(byref(msg))
             else:
                 # 没有消息时短暂休眠，避免CPU占用过高
                 time.sleep(0.01)

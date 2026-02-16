@@ -3,6 +3,7 @@
 负责捕获按键、显示窗口列表、保存配置
 """
 import customtkinter as ctk
+import tkinter as tk
 from core import config, hotkey, window as window_mgr
 
 
@@ -80,11 +81,17 @@ class AddDialog:
         scrollbar = ctk.CTkScrollbar(self.window_frame)
         scrollbar.pack(side="right", fill="y")
 
-        # 窗口列表
-        self.window_listbox = ctk.CTkTextbox(
+        # 使用 tkinter Listbox 支持选中
+        self.window_listbox = tk.Listbox(
             self.window_frame,
             yscrollcommand=scrollbar.set,
-            font=ctk.CTkFont(size=13)
+            font=("Segoe UI", 12),
+            bg="#1f1f1f",
+            fg="white",
+            selectbackground="#3b8ed0",
+            selectforeground="white",
+            bd=0,
+            highlightthickness=0
         )
         self.window_listbox.pack(side="left", fill="both", expand=True)
         scrollbar.configure(command=self.window_listbox.yview)
@@ -207,12 +214,10 @@ class AddDialog:
         # 按窗口类分组
         groups = window_mgr.group_by_class(windows)
 
-        # 显示分组后的窗口
-        self.window_listbox.delete("1.0", "end")
-        self.window_listbox.insert("end", "可用窗口:\n\n")
+        # 清空列表
+        self.window_listbox.delete(0, "end")
 
         self.window_options = []
-        idx = 0
 
         for class_name, wins in groups.items():
             # 只显示有标题的窗口
@@ -220,44 +225,50 @@ class AddDialog:
             if not valid_wins:
                 continue
 
-            self.window_listbox.insert("end", f"【{class_name}】\n")
+            # 添加分组标题（作为不可选择的项）
+            self.window_listbox.insert("end", f"--- {class_name} ---")
+            # 设置该项不可选择
+            self.window_listbox.itemconfig(self.window_listbox.size() - 1, fg="#888888", selectbackground="#1f1f1f")
 
             for w in valid_wins:
-                idx += 1
                 self.window_options.append(w)
-                self.window_listbox.insert("end", f"  {idx}. {w['title']}\n")
+                # 只显示窗口标题
+                self.window_listbox.insert("end", f"  {w['title']}")
 
-            self.window_listbox.insert("end", "\n")
-
-        # 绑定点击事件
-        self.window_listbox.bind("<Button-1>", self.on_window_select)
-        self.window_listbox.configure(state="disabled")
+        # 绑定选择事件
+        self.window_listbox.bind("<<ListboxSelect>>", self.on_window_select)
 
         # 启用确定按钮
         self.confirm_button.configure(state="normal")
 
     def on_window_select(self, event):
         """窗口选择事件"""
-        # 获取点击位置对应的行
-        try:
-            index = self.window_listbox.index(f"@{event.x},{event.y}")
-        except:
+        # 获取选中的索引
+        selection = self.window_listbox.curselection()
+        if not selection:
             return
 
-        # 解析行号
-        line_num = int(index.split('.')[0])
+        idx = selection[0]
 
-        # 计算选中的是哪个窗口（跳过标题行）
-        # 简单逻辑：第一个可点击的窗口对应 idx=1
-        if line_num >= 3:  # 跳过前面的说明行
-            window_idx = line_num - 3
-            if 0 <= window_idx < len(self.window_options):
-                self.selected_window = self.window_options[window_idx]
-                # 高亮显示
-                self.window_listbox.configure(state="normal")
-                self.window_listbox.tag_add("selected", f"{line_num}.0", f"{line_num}.end")
-                self.window_listbox.tag_config("selected", foreground="green")
-                self.window_listbox.configure(state="disabled")
+        # 检查是否选中的是分组标题（奇数行，因为每组后面还有子项）
+        # 分组标题不可选择，这里我们用一种简单方法：
+        # 检查该项的文本是否是分组标题格式
+        selected_text = self.window_listbox.get(idx)
+        if selected_text.startswith("---"):
+            # 取消选择
+            self.window_listbox.selection_clear(idx)
+            return
+
+        # 计算实际窗口索引（跳过分组标题）
+        # 找到该窗口在 window_options 中的索引
+        # 因为每个分组标题占一行
+        window_idx = idx
+        for i in range(idx):
+            if self.window_listbox.get(i).startswith("---"):
+                window_idx -= 1
+
+        if 0 <= window_idx < len(self.window_options):
+            self.selected_window = self.window_options[window_idx]
 
     def on_confirm(self):
         """确定按钮点击"""
