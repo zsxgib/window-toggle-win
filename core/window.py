@@ -92,6 +92,19 @@ def is_window_visible(hwnd):
     return win32gui.IsWindowVisible(hwnd) and not win32gui.IsIconic(hwnd)
 
 
+def is_valid_window(hwnd):
+    """
+    检查窗口句柄是否有效（窗口是否存在）
+    Args:
+        hwnd: 窗口句柄
+    Returns:
+        bool: 窗口是否有效
+    """
+    if not hwnd:
+        return False
+    return win32gui.IsWindow(hwnd)
+
+
 def toggle_window(hwnd):
     """
     切换窗口显示/隐藏

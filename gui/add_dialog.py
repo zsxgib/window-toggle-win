@@ -269,12 +269,13 @@ class AddDialog:
         if not self.selected_hotkey or not self.selected_window:
             return
 
-        # 保存配置
+        # 保存配置（包括 hwnd）
         shortcut = {
             'key': self.selected_hotkey['key'],
             'modifiers': self.selected_hotkey['modifiers'],
             'window_title': self.selected_window['title'],
-            'window_class': self.selected_window['class_name']
+            'window_class': self.selected_window['class_name'],
+            'hwnd': self.selected_window['hwnd']
         }
 
         saved = config.add_shortcut(shortcut)

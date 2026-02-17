@@ -141,12 +141,13 @@ class MainWindow:
             key = s.get('key', '')
 
             if shortcut_id and key:
-                # 保存窗口信息
+                # 保存窗口信息（包括 hwnd）
                 self.registered_hotkeys[shortcut_id] = {
                     'modifiers': modifiers,
                     'key': key,
                     'window_title': s.get('window_title', ''),
-                    'window_class': s.get('window_class', '')
+                    'window_class': s.get('window_class', ''),
+                    'hwnd': s.get('hwnd')
                 }
 
                 # 注册热键并设置回调
@@ -221,14 +222,20 @@ class MainWindow:
             return
 
         shortcut_info = self.registered_hotkeys[shortcut_id]
-        window_class = shortcut_info.get('window_class', '')
-
-        if not window_class:
-            return
-
-        # 查找窗口
-        hwnd = window_mgr.find_window_by_class(window_class)
-
+        
+        # 优先使用保存的 hwnd
+        hwnd = shortcut_info.get('hwnd')
+        
+        # 如果 hwnd 无效，尝试用 window_class 查找
+        if not hwnd or not window_mgr.is_valid_window(hwnd):
+            window_class = shortcut_info.get('window_class', '')
+            if window_class:
+                hwnd = window_mgr.find_window_by_class(window_class)
+        
         if hwnd:
             # 切换窗口显示/隐藏
-            window_mgr.toggle_window(hwnd)
+            result = window_mgr.toggle_window(hwnd)
+            if not result:
+                print(f"[hotkey] 窗口操作失败，可能需要重新配置")
+        else:
+            print(f"[hotkey] 未找到窗口，可能需要重新配置")
