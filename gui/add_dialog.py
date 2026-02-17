@@ -133,6 +133,10 @@ class AddDialog:
         if not self.capture_mode:
             return
 
+        # 过滤掉 Alt 键本身（防止误判）
+        if event.keycode == 18:  # Alt 键的 keycode
+            return
+
         # 获取修饰键状态
         modifiers = []
         if event.state & 1:  # Shift
@@ -150,9 +154,14 @@ class AddDialog:
         if not key_name:
             return
 
-        # 必须有修饰键或者按的是功能键
-        if not modifiers and key_name not in ['F1', 'F2', 'F3', 'F4', 'F5', 'F6',
-                                               'F7', 'F8', 'F9', 'F10', 'F11', 'F12']:
+        # 必须有修饰键或者按的是功能键/数字字母键
+        allowed_keys = ['F1', 'F2', 'F3', 'F4', 'F5', 'F6',
+                       'F7', 'F8', 'F9', 'F10', 'F11', 'F12',
+                       'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+                       'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+                       '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+
+        if not modifiers and key_name not in allowed_keys:
             return
 
         # 保存捕获的快捷键
