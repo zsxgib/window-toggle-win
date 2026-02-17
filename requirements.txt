@@ -2,4 +2,4 @@ pywin32
 customtkinter
 pystray
 Pillow
-keyboard
+pynput

@@ -4,8 +4,7 @@
 """
 import customtkinter as ctk
 import tkinter as tk
-import threading
-import keyboard
+from pynput import keyboard
 from core import config, hotkey, window as window_mgr
 
 
@@ -25,6 +24,7 @@ class AddDialog:
         self.selected_hotkey = None
         self.selected_window = None
         self.capture_mode = True  # True=捕获按键, False=选择窗口
+        self.listener = None
 
         # 创建对话框
         self.dialog = ctk.CTkToplevel(parent)
@@ -35,15 +35,8 @@ class AddDialog:
 
         self.create_widgets()
 
-        # 启动键盘捕获线程
-        self.running = True
-        self.keyboard_thread = threading.Thread(target=self.keyboard_capture, daemon=True)
-        self.keyboard_thread.start()
-
-    def keyboard_capture(self):
-        """使用 keyboard 库捕获按键"""
-        # 等待用户按键
-        self.dialog.wait_window()
+        # 开始捕获键盘
+        self.start_keyboard_listener()
 
     def create_widgets(self):
         """创建界面元素"""
@@ -126,72 +119,76 @@ class AddDialog:
         )
         cancel_button.pack(side="left", padx=10)
 
-        # 绑定键盘事件来捕获 ESC
+        # 绑定 ESC 键
         self.dialog.bind("<Escape>", lambda e: self.on_cancel())
 
-        # 开始捕获热键
-        self.capture_hotkey()
+    def start_keyboard_listener(self):
+        """启动键盘监听器"""
+        self.listener = keyboard.Listener(
+            on_press=self.on_key_press
+        )
+        self.listener.start()
 
-    def capture_hotkey(self):
-        """开始捕获快捷键"""
-        self.step_label.configure(text="步骤 1: 请按下要使用的快捷键")
-        self.hotkey_label.configure(text="等待按键...（按 ESC 取消）", text_color="gray")
+    def on_key_press(self, key):
+        """键盘按键事件"""
+        if not self.capture_mode:
+            return
 
-        # 使用 keyboard 库读取下一个按键事件
-        def on_key_event(e):
-            if not self.capture_mode:
-                return
+        try:
+            # 获取按键名称
+            key_name = key.char
+        except AttributeError:
+            # 功能键等特殊按键
+            key_name = str(key).replace('Key.', '')
 
-            key = e.name
+        # ESC 取消
+        if key_name == 'esc':
+            self.on_cancel()
+            return
 
-            # ESC 取消
-            if key == 'esc':
-                self.on_cancel()
-                return
+        # 跳过修饰键单独按下
+        if key_name in ['shift', 'ctrl', 'alt', 'win']:
+            return
 
-            # 跳过特殊的键名
-            if key in ['shift', 'ctrl', 'alt', 'win', 'left shift', 'right shift',
-                      'left ctrl', 'right ctrl', 'left alt', 'right alt']:
-                return
+        # 获取当前按下的修饰键
+        modifiers = []
+        if keyboard.Key.ctrl in keyboard._current_keys:
+            modifiers.append('Ctrl')
+        if keyboard.Key.alt in keyboard._current_keys:
+            modifiers.append('Alt')
+        if keyboard.Key.shift in keyboard._current_keys:
+            modifiers.append('Shift')
+        if keyboard.Key.cmd in keyboard._current_keys:
+            modifiers.append('Win')
 
-            # 构建修饰键字符串
-            modifiers = []
-            if e.event_type == 'down':
-                if keyboard.is_pressed('ctrl'):
-                    modifiers.append('Ctrl')
-                if keyboard.is_pressed('alt'):
-                    modifiers.append('Alt')
-                if keyboard.is_pressed('shift'):
-                    modifiers.append('Shift')
-                if keyboard.is_pressed('win'):
-                    modifiers.append('Win')
+        # 保存捕获的快捷键
+        mod_str = '+'.join(modifiers) if modifiers else ''
 
-            # 保存捕获的快捷键
-            mod_str = '+'.join(modifiers) if modifiers else ''
+        # 格式化显示
+        if mod_str:
+            hotkey_str = f"{mod_str}+{key_name}"
+        else:
+            hotkey_str = key_name
 
-            # 格式化显示
-            if mod_str:
-                hotkey_str = f"{mod_str}+{key}"
-            else:
-                hotkey_str = key
+        self.selected_hotkey = {
+            'modifiers': mod_str,
+            'key': key_name
+        }
 
-            self.selected_hotkey = {
-                'modifiers': mod_str,
-                'key': key
-            }
+        # 显示捕获的快捷键
+        self.hotkey_label.configure(text=hotkey_str, text_color="green")
 
-            # 显示捕获的快捷键
-            self.hotkey_label.configure(text=hotkey_str, text_color="green")
-
-            # 切换到窗口选择模式
-            self.capture_mode = False
-            self.show_window_list()
-
-        # 监听键盘事件
-        keyboard.on_press(on_key_event)
+        # 切换到窗口选择模式
+        self.capture_mode = False
+        self.show_window_list()
 
     def show_window_list(self):
         """显示窗口列表"""
+        # 停止键盘监听
+        if self.listener:
+            self.listener.stop()
+            self.listener = None
+
         # 切换界面
         self.step_label.configure(text="步骤 2: 选择目标窗口")
         self.window_frame.pack(fill="both", expand=True, padx=20, pady=10)
@@ -265,9 +262,6 @@ class AddDialog:
 
         saved = config.add_shortcut(shortcut)
 
-        # 关闭 keyboard 监听
-        keyboard.unhook_all()
-
         if saved:
             hotkey.register(
                 self.hwnd,
@@ -283,6 +277,8 @@ class AddDialog:
 
     def on_cancel(self):
         """取消按钮点击"""
-        # 关闭 keyboard 监听
-        keyboard.unhook_all()
+        # 停止键盘监听
+        if self.listener:
+            self.listener.stop()
+            self.listener = None
         self.dialog.destroy()
