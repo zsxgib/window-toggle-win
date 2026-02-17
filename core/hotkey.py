@@ -11,7 +11,7 @@ _hotkey_callbacks = {}
 _callbacks = {}
 # 防止快速连续触发的标志
 _last_trigger_time = {}
-_TRIGGER_COOLDOWN = 0.5  # 0.5秒内不重复触发
+_TRIGGER_COOLDOWN = 0  # 移除 cooldown，依赖窗口状态判断来防止闪烁
 _listener = None
 # 记录当前按下的修饰键
 _pressed_modifiers = set()

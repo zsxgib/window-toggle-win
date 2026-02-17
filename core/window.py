@@ -105,13 +105,28 @@ def toggle_window(hwnd):
     if not win32gui.IsWindow(hwnd):
         return False
 
-    if is_window_minimized(hwnd):
-        # 最小化 → 恢复并激活
-        win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+    # 使用 GetWindowPlacement 更精确地判断窗口状态
+    # placement[0] = flags, placement[1] = showCmd
+    # SW_SHOWNORMAL=1, SW_SHOWMINIMIZED=2, SW_SHOWMAXIMIZED=3
+    placement = win32gui.GetWindowPlacement(hwnd)
+    show_cmd = placement[1]
+    
+    # 判断是否最小化
+    minimized = (show_cmd == win32con.SW_SHOWMINIMIZED)
+    print(f"[toggle] hwnd={hwnd}, showCmd={show_cmd}, minimized={minimized}")
+
+    if minimized:
+        # 最小化 → 恢复并激活 (先最大化再正常，保证窗口回到之前的状态)
+        if show_cmd == win32con.SW_SHOWMAXIMIZED:
+            win32gui.ShowWindow(hwnd, win32con.SW_SHOWMAXIMIZED)
+        else:
+            win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
         win32gui.SetForegroundWindow(hwnd)
+        print(f"[toggle] Restored window")
     else:
         # 正常/最大化 → 最小化
         win32gui.ShowWindow(hwnd, win32con.SW_MINIMIZE)
+        print(f"[toggle] Minimized window")
 
     return True
 
