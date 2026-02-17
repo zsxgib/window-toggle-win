@@ -25,6 +25,7 @@ class AddDialog:
         self.selected_window = None
         self.capture_mode = True  # True=捕获按键, False=选择窗口
         self.listener = None
+        self.pressed_modifiers = set()  # 记录按下的修饰键
 
         # 创建对话框
         self.dialog = ctk.CTkToplevel(parent)
@@ -125,7 +126,8 @@ class AddDialog:
     def start_keyboard_listener(self):
         """启动键盘监听器"""
         self.listener = keyboard.Listener(
-            on_press=self.on_key_press
+            on_press=self.on_key_press,
+            on_release=self.on_key_release
         )
         self.listener.start()
 
@@ -139,11 +141,18 @@ class AddDialog:
             self.on_cancel()
             return
 
-        # 跳过修饰键
-        if key in [keyboard.Key.shift, keyboard.Key.shift_l, keyboard.Key.shift_r,
-                    keyboard.Key.ctrl, keyboard.Key.ctrl_l, keyboard.Key.ctrl_r,
-                    keyboard.Key.alt, keyboard.Key.alt_l, keyboard.Key.alt_r,
-                    keyboard.Key.cmd, keyboard.Key.cmd_l, keyboard.Key.cmd_r]:
+        # 记录修饰键
+        if key in [keyboard.Key.shift, keyboard.Key.shift_l, keyboard.Key.shift_r]:
+            self.pressed_modifiers.add('Shift')
+            return
+        elif key in [keyboard.Key.ctrl, keyboard.Key.ctrl_l, keyboard.Key.ctrl_r]:
+            self.pressed_modifiers.add('Ctrl')
+            return
+        elif key in [keyboard.Key.alt, keyboard.Key.alt_l, keyboard.Key.alt_r]:
+            self.pressed_modifiers.add('Alt')
+            return
+        elif key in [keyboard.Key.cmd, keyboard.Key.cmd_l, keyboard.Key.cmd_r]:
+            self.pressed_modifiers.add('Win')
             return
 
         # 获取按键名称
@@ -155,20 +164,37 @@ class AddDialog:
         if not key_name:
             return
 
-        # 简化处理：只使用最后按下的键作为主键
-        # 修饰键在 pynput 中通过 Listener 的 pressed_keys 状态获取，这里简化处理
-        # 如果需要更复杂的支持，可以后续扩展
+        # 获取当前按下的修饰键
+        mod_str = '+'.join(sorted(self.pressed_modifiers))
+        
+        # 格式化显示
+        if mod_str:
+            hotkey_str = f"{mod_str}+{key_name}"
+        else:
+            hotkey_str = key_name
+
         self.selected_hotkey = {
-            'modifiers': '',  # 简化：暂不支持在添加时指定修饰键
+            'modifiers': mod_str,
             'key': key_name
         }
 
         # 显示捕获的快捷键
-        self.hotkey_label.configure(text=key_name, text_color="green")
+        self.hotkey_label.configure(text=hotkey_str, text_color="green")
 
         # 切换到窗口选择模式
         self.capture_mode = False
         self.show_window_list()
+
+    def on_key_release(self, key):
+        """键盘按键释放事件"""
+        if key in [keyboard.Key.shift, keyboard.Key.shift_l, keyboard.Key.shift_r]:
+            self.pressed_modifiers.discard('Shift')
+        elif key in [keyboard.Key.ctrl, keyboard.Key.ctrl_l, keyboard.Key.ctrl_r]:
+            self.pressed_modifiers.discard('Ctrl')
+        elif key in [keyboard.Key.alt, keyboard.Key.alt_l, keyboard.Key.alt_r]:
+            self.pressed_modifiers.discard('Alt')
+        elif key in [keyboard.Key.cmd, keyboard.Key.cmd_l, keyboard.Key.cmd_r]:
+            self.pressed_modifiers.discard('Win')
 
     def show_window_list(self):
         """显示窗口列表"""
@@ -176,6 +202,9 @@ class AddDialog:
         if self.listener:
             self.listener.stop()
             self.listener = None
+        
+        # 清除修饰键状态
+        self.pressed_modifiers.clear()
 
         # 切换界面
         self.step_label.configure(text="步骤 2: 选择目标窗口")
