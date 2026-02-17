@@ -4,6 +4,8 @@
 """
 import customtkinter as ctk
 import tkinter as tk
+import threading
+import keyboard
 from core import config, hotkey, window as window_mgr
 
 
@@ -31,11 +33,17 @@ class AddDialog:
         self.dialog.transient(parent)
         self.dialog.grab_set()
 
-        # 绑定键盘事件
-        self.dialog.bind("<KeyPress>", self.on_key_press)
-
         self.create_widgets()
-        self.capture_hotkey()
+
+        # 启动键盘捕获线程
+        self.running = True
+        self.keyboard_thread = threading.Thread(target=self.keyboard_capture, daemon=True)
+        self.keyboard_thread.start()
+
+    def keyboard_capture(self):
+        """使用 keyboard 库捕获按键"""
+        # 等待用户按键
+        self.dialog.wait_window()
 
     def create_widgets(self):
         """创建界面元素"""
@@ -50,7 +58,7 @@ class AddDialog:
         # 快捷键显示
         self.hotkey_label = ctk.CTkLabel(
             self.dialog,
-            text="等待按键...",
+            text="等待按键...（按 ESC 取消）",
             font=ctk.CTkFont(size=24),
             text_color="gray"
         )
@@ -59,7 +67,7 @@ class AddDialog:
         # 说明
         info = ctk.CTkLabel(
             self.dialog,
-            text="例如: Ctrl+Alt+F1, Super+F2, F3",
+            text="例如: F1, Ctrl+F1, Alt+F2, Ctrl+Shift+F3",
             font=ctk.CTkFont(size=12)
         )
         info.pack(pady=(0, 20))
@@ -118,98 +126,69 @@ class AddDialog:
         )
         cancel_button.pack(side="left", padx=10)
 
+        # 绑定键盘事件来捕获 ESC
+        self.dialog.bind("<Escape>", lambda e: self.on_cancel())
+
+        # 开始捕获热键
+        self.capture_hotkey()
+
     def capture_hotkey(self):
         """开始捕获快捷键"""
         self.step_label.configure(text="步骤 1: 请按下要使用的快捷键")
-        self.hotkey_label.configure(text="等待按键...", text_color="gray")
-        self.hotkey_label.focus_set()
+        self.hotkey_label.configure(text="等待按键...（按 ESC 取消）", text_color="gray")
 
-    def on_key_press(self, event):
-        """
-        键盘按键事件
-        Args:
-            event: 键盘事件
-        """
-        if not self.capture_mode:
-            return
+        # 使用 keyboard 库读取下一个按键事件
+        def on_key_event(e):
+            if not self.capture_mode:
+                return
 
-        # 过滤掉 Alt 键本身（防止误判）
-        if event.keycode == 18:  # Alt 键的 keycode
-            return
+            key = e.name
 
-        # 获取修饰键状态
-        modifiers = []
-        if event.state & 1:  # Shift
-            modifiers.append('Shift')
-        if event.state & 4:  # Ctrl
-            modifiers.append('Ctrl')
-        if event.state & 8:  # Alt
-            modifiers.append('Alt')
-        if event.state & 0x100:  # Win
-            modifiers.append('Win')
+            # ESC 取消
+            if key == 'esc':
+                self.on_cancel()
+                return
 
-        # 获取按键名称
-        key_name = self.get_key_name(event.keycode)
+            # 跳过特殊的键名
+            if key in ['shift', 'ctrl', 'alt', 'win', 'left shift', 'right shift',
+                      'left ctrl', 'right ctrl', 'left alt', 'right alt']:
+                return
 
-        if not key_name:
-            return
+            # 构建修饰键字符串
+            modifiers = []
+            if e.event_type == 'down':
+                if keyboard.is_pressed('ctrl'):
+                    modifiers.append('Ctrl')
+                if keyboard.is_pressed('alt'):
+                    modifiers.append('Alt')
+                if keyboard.is_pressed('shift'):
+                    modifiers.append('Shift')
+                if keyboard.is_pressed('win'):
+                    modifiers.append('Win')
 
-        # 必须有修饰键或者按的是功能键/数字字母键
-        allowed_keys = ['F1', 'F2', 'F3', 'F4', 'F5', 'F6',
-                       'F7', 'F8', 'F9', 'F10', 'F11', 'F12',
-                       'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
-                       'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-                       '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+            # 保存捕获的快捷键
+            mod_str = '+'.join(modifiers) if modifiers else ''
 
-        if not modifiers and key_name not in allowed_keys:
-            return
+            # 格式化显示
+            if mod_str:
+                hotkey_str = f"{mod_str}+{key}"
+            else:
+                hotkey_str = key
 
-        # 保存捕获的快捷键
-        mod_str = '+'.join(modifiers) if modifiers else ''
-        self.selected_hotkey = {
-            'modifiers': mod_str,
-            'key': key_name
-        }
+            self.selected_hotkey = {
+                'modifiers': mod_str,
+                'key': key
+            }
 
-        # 显示捕获的快捷键
-        if mod_str:
-            hotkey_str = f"{mod_str}+{key_name}"
-        else:
-            hotkey_str = key_name
+            # 显示捕获的快捷键
+            self.hotkey_label.configure(text=hotkey_str, text_color="green")
 
-        self.hotkey_label.configure(text=hotkey_str, text_color="green")
+            # 切换到窗口选择模式
+            self.capture_mode = False
+            self.show_window_list()
 
-        # 切换到窗口选择模式
-        self.capture_mode = False
-        self.show_window_list()
-
-    def get_key_name(self, keycode):
-        """
-        根据 keycode 获取键名
-        Args:
-            keycode: 键盘码
-        Returns:
-            str: 键名
-        """
-        # 功能键映射
-        f_keys = {
-            112: 'F1', 113: 'F2', 114: 'F3', 115: 'F4',
-            116: 'F5', 117: 'F6', 118: 'F7', 119: 'F8',
-            120: 'F9', 121: 'F10', 122: 'F11', 123: 'F12'
-        }
-
-        if keycode in f_keys:
-            return f_keys[keycode]
-
-        # 字母键
-        if 65 <= keycode <= 90:
-            return chr(keycode)
-
-        # 数字键
-        if 48 <= keycode <= 57:
-            return chr(keycode)
-
-        return None
+        # 监听键盘事件
+        keyboard.on_press(on_key_event)
 
     def show_window_list(self):
         """显示窗口列表"""
@@ -234,14 +213,12 @@ class AddDialog:
             if not valid_wins:
                 continue
 
-            # 添加分组标题（作为不可选择的项）
+            # 添加分组标题
             self.window_listbox.insert("end", f"--- {class_name} ---")
-            # 设置该项不可选择
             self.window_listbox.itemconfig(self.window_listbox.size() - 1, fg="#888888", selectbackground="#1f1f1f")
 
             for w in valid_wins:
                 self.window_options.append(w)
-                # 只显示窗口标题
                 self.window_listbox.insert("end", f"  {w['title']}")
 
         # 绑定选择事件
@@ -252,25 +229,19 @@ class AddDialog:
 
     def on_window_select(self, event):
         """窗口选择事件"""
-        # 获取选中的索引
         selection = self.window_listbox.curselection()
         if not selection:
             return
 
         idx = selection[0]
-
-        # 检查是否选中的是分组标题（奇数行，因为每组后面还有子项）
-        # 分组标题不可选择，这里我们用一种简单方法：
-        # 检查该项的文本是否是分组标题格式
         selected_text = self.window_listbox.get(idx)
+
+        # 检查是否选中分组标题
         if selected_text.startswith("---"):
-            # 取消选择
             self.window_listbox.selection_clear(idx)
             return
 
-        # 计算实际窗口索引（跳过分组标题）
-        # 找到该窗口在 window_options 中的索引
-        # 因为每个分组标题占一行
+        # 计算实际窗口索引
         window_idx = idx
         for i in range(idx):
             if self.window_listbox.get(i).startswith("---"):
@@ -294,8 +265,10 @@ class AddDialog:
 
         saved = config.add_shortcut(shortcut)
 
+        # 关闭 keyboard 监听
+        keyboard.unhook_all()
+
         if saved:
-            # 注册热键
             hotkey.register(
                 self.hwnd,
                 saved['id'],
@@ -303,18 +276,13 @@ class AddDialog:
                 saved['key']
             )
 
-            # 获取主窗口实例并设置回调
-            # 通过 parent 查找主窗口
-            from gui.main_window import MainWindow
-            # 这里简化处理：让回调在 on_close_callback 中统一处理
-
-        # 关闭对话框
         self.dialog.destroy()
 
-        # 调用关闭回调
         if self.on_close_callback:
             self.on_close_callback()
 
     def on_cancel(self):
         """取消按钮点击"""
+        # 关闭 keyboard 监听
+        keyboard.unhook_all()
         self.dialog.destroy()
