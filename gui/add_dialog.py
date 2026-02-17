@@ -134,49 +134,37 @@ class AddDialog:
         if not self.capture_mode:
             return
 
-        try:
-            # 获取按键名称
-            key_name = key.char
-        except AttributeError:
-            # 功能键等特殊按键
-            key_name = str(key).replace('Key.', '')
-
         # ESC 取消
-        if key_name == 'esc':
+        if key == keyboard.Key.esc:
             self.on_cancel()
             return
 
-        # 跳过修饰键单独按下
-        if key_name in ['shift', 'ctrl', 'alt', 'win']:
+        # 跳过修饰键
+        if key in [keyboard.Key.shift, keyboard.Key.shift_l, keyboard.Key.shift_r,
+                    keyboard.Key.ctrl, keyboard.Key.ctrl_l, keyboard.Key.ctrl_r,
+                    keyboard.Key.alt, keyboard.Key.alt_l, keyboard.Key.alt_r,
+                    keyboard.Key.cmd, keyboard.Key.cmd_l, keyboard.Key.cmd_r]:
             return
 
-        # 获取当前按下的修饰键
-        modifiers = []
-        if keyboard.Key.ctrl in keyboard._current_keys:
-            modifiers.append('Ctrl')
-        if keyboard.Key.alt in keyboard._current_keys:
-            modifiers.append('Alt')
-        if keyboard.Key.shift in keyboard._current_keys:
-            modifiers.append('Shift')
-        if keyboard.Key.cmd in keyboard._current_keys:
-            modifiers.append('Win')
+        # 获取按键名称
+        try:
+            key_name = key.char
+        except AttributeError:
+            key_name = str(key).replace('Key.', '')
 
-        # 保存捕获的快捷键
-        mod_str = '+'.join(modifiers) if modifiers else ''
+        if not key_name:
+            return
 
-        # 格式化显示
-        if mod_str:
-            hotkey_str = f"{mod_str}+{key_name}"
-        else:
-            hotkey_str = key_name
-
+        # 简化处理：只使用最后按下的键作为主键
+        # 修饰键在 pynput 中通过 Listener 的 pressed_keys 状态获取，这里简化处理
+        # 如果需要更复杂的支持，可以后续扩展
         self.selected_hotkey = {
-            'modifiers': mod_str,
+            'modifiers': '',  # 简化：暂不支持在添加时指定修饰键
             'key': key_name
         }
 
         # 显示捕获的快捷键
-        self.hotkey_label.configure(text=hotkey_str, text_color="green")
+        self.hotkey_label.configure(text=key_name, text_color="green")
 
         # 切换到窗口选择模式
         self.capture_mode = False
